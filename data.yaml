@@ -1,0 +1,40 @@
+Xương Rồng:
+  DoAm: "20%"
+  AnhSang: "Cao"
+  MucNuoc: "Thấp"
+  ThoiGianKiemTra: "7 ngày"
+Trầu Bà:
+  DoAm: "70%"
+  AnhSang: "Vừa"
+  MucNuoc: "Cao"
+  ThoiGianKiemTra: "2 ngày"
+Nha Đam:
+  DoAm: "40%"
+  AnhSang: "Cao"
+  MucNuoc: "Trung bình"
+  ThoiGianKiemTra: "5 ngày"
+Kim Tiền:
+  DoAm: "50%"
+  AnhSang: "Vừa"
+  MucNuoc: "Trung bình"
+  ThoiGianKiemTra: "4 ngày"
+Lan Ý:
+  DoAm: "60%"
+  AnhSang: "Yếu"
+  MucNuoc: "Trung bình"
+  ThoiGianKiemTra: "3 ngày"
+Lưỡi Hổ:
+  DoAm: "30%"
+  AnhSang: "Vừa"
+  MucNuoc: "Thấp"
+  ThoiGianKiemTra: "10 ngày"
+Sen Đá:
+  DoAm: "10%"
+  AnhSang: "Cao"
+  MucNuoc: "Thấp"
+  ThoiGianKiemTra: "14 ngày"
+Cẩm Nhung:
+  DoAm: "80%"
+  AnhSang: "Yếu"
+  MucNuoc: "Cao"
+  ThoiGianKiemTra: "2 ngày"
