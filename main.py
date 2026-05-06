@@ -12,6 +12,12 @@ class SmartPotApp(ctk.CTk):
         self.geometry("900x600")
         self.minsize(800, 500)
 
+        self.shared_data = {
+            "selected_plant": None,
+            "plant_info": {}
+        }
+
+
         # --- BỘ NHỚ TRUNG TÂM (Thêm mới) ---
         self.current_plant_name = "Chưa chọn cây"
         self.current_plant_info = {"DoAm": "--", "AnhSang": "--", "MucNuoc": "--", "ThoiGianKiemTra": "--"}

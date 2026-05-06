@@ -11,7 +11,6 @@ class InfoModule(ctk.CTkFrame):
     def __init__(self, parent, controller):
         super().__init__(parent, fg_color="transparent")
         
-
         name = controller.current_plant_name
         info = controller.current_plant_info
         
@@ -37,8 +36,20 @@ class SuggestionModule(ctk.CTkFrame):
 
     def fetch_data(self):
         data = iot_socket.read_sensors()
-        display_text = f"☀️ Ánh sáng: {data['light_lux']} lux\n💧 Độ ẩm đất: {data['soil_moisture']}%\n🚰 Mực nước bình: {data['water_level']}"
-        self.lbl_sensor.configure(text=display_text)
+        # display_text = f"☀️ Ánh sáng: {data['light_lux']} lux\n💧 Độ ẩm đất: {data['soil_moisture']}%\n🚰 Mực nước bình: {data['water_level']}"
+        # KIỂM TRA TRẠNG THÁI TRƯỚC KHI HIỂN THỊ
+        if data["light_lux"] == "Không có dữ liệu" or data["light_lux"] == "Không có":
+            display_text = "🔌 Hệ thống đang mất kết nối hoặc chưa cắm ESP32."
+        else:
+            # HIỂN THỊ ĐÚNG 4 CẢM BIẾN MỚI
+            touch_status = "Đang chạm" if str(data['touch_sensor']).strip() == "1" else "Không chạm"
+            display_text = (
+                f"☀️ Ánh sáng: {data['light_lux']} lux\n"
+                f"☁️ Độ ẩm không khí: {data['air_humidity']}%\n"
+                f"💧 Độ ẩm đất: {data['soil_moisture']}%\n"
+                f"👆 Cảm biến chạm: {touch_status}"
+            )
+        #self.lbl_sensor.configure(text=display_text)
 
 class PlantHPModule(ctk.CTkFrame):
     """Module hiển thị Streak/Sinh tồn"""
