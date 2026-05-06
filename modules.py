@@ -11,6 +11,7 @@ class InfoModule(ctk.CTkFrame):
     def __init__(self, parent, controller):
         super().__init__(parent, fg_color="transparent")
         
+
         name = controller.current_plant_name
         info = controller.current_plant_info
         
