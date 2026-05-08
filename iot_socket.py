@@ -1,7 +1,39 @@
 import serial
 import serial.tools.list_ports
 import time
+ser = None
+last_update_time = 0
 
+def auto_connect():
+    global ser
+    # Nếu đã kết nối rồi thì không làm gì cả
+    if ser is not None and ser.is_open:
+        return True
+        
+    try:
+        # Tự động quét tất cả các cổng USB đang cắm
+        ports = serial.tools.list_ports.comports()
+        
+        if not ports:
+            print("!!! [CỔNG COM]: Không tìm thấy thiết bị nào cắm vào máy tính. Hãy kiểm tra cáp!")
+            return False
+            
+        for port in ports:
+            print(f"--- Đang thử bẻ khóa cổng: {port.device} ---")
+            try:
+                # Thử kết nối với tốc độ 9600
+                ser = serial.Serial(port.device, 9600, timeout=1)
+                print(f"=== KẾT NỐI THÀNH CÔNG VỚI CHẬU CÂY TẠI {port.device} ===")
+                time.sleep(2) # Cho ESP32 2 giây để hoàn hồn sau khi mở cổng
+                return True
+            except Exception as e:
+                # Nếu cổng này bị khóa, báo lỗi chi tiết và thử cổng tiếp theo
+                print(f"    [X] Thất bại tại {port.device} (Lý do: {e})")
+                
+        return False
+    except Exception as e:
+        print(f"Lỗi hệ thống dò cổng: {e}")
+        return False
 # ================= KHO LƯU TRỮ DỮ LIỆU THỰC TẾ =================
 # Loại bỏ 100% dữ liệu ảo. Khởi tạo trạng thái mặc định an toàn để không sập UI.
 sensor_cache = {
@@ -25,111 +57,99 @@ streak_cache = {
     "status": "Mất kết nối"
 }
 
-ser = None
+# ser = serial.Serial('COM5', 9600, timeout=1)
 last_update_time = 0
 
-def auto_connect():
-    """Tự động quét và kết nối với ESP32 (Plug & Play) mà không cần cấu hình cứng COM"""
+
+'''def auto_connect():
+    """Tự động quét và kết nối với mọi mạch ESP32/Arduino (Plug & Play)"""
     global ser
-    # Nếu đang có kết nối ổn định thì giữ nguyên
     if ser is not None and ser.is_open:
         return True
-    
+        
+    import serial.tools.list_ports
     ports = serial.tools.list_ports.comports()
+    
     for port in ports:
-        try:
-            # Nhận diện chip nạp của ESP32 (Thường là CH340, CP210x, hoặc USB Serial)
-            if "CH340" in port.description or "CP210" in port.description or "Serial" in port.description:
-                ser = serial.Serial(port.device, 9600, timeout=1)
-                time.sleep(2) # Chờ phần cứng ESP32 reset và ổn định tín hiệu
+        # Bắt các từ khóa thông dụng của ESP32 và Arduino
+        if "USB" in port.description or "CH340" in port.description or "CP210" in port.description or "Serial" in port.description:
+            try:
+                # ÉP BUỘC Baudrate 115200 để khớp với ESP32
+                ser = serial.Serial(port.device, baudrate=9600, timeout=1)
+                print(f"[THÀNH CÔNG] Đã kết nối ESP32 tại cổng: {port.device}")
                 return True
-        except:
-            continue
-            
-    # Nếu không bắt được bằng định danh, thử cắm đại vào cổng thiết bị phần cứng đầu tiên
-    if len(ports) > 0:
-        try:
-            ser = serial.Serial(ports[0].device, 9600, timeout=1)
-            time.sleep(2)
-            return True
-        except:
-            pass
-            
-    return False
+            except Exception as e:
+                print(f"[LỖI] Tìm thấy {port.device} nhưng không thể mở: {e}")
+                
+    print("[CẢNH BÁO] Không tìm thấy chậu cây nào được cắm vào máy tính!")
+    return False'''
+
 
 def update_data():
-    """Hàm lõi: Quản lý đọc dữ liệu thật từ Hardware mỗi 60 giây"""
     global ser, last_update_time
     global sensor_cache, history_cache, streak_cache
     
     current_time = time.time()
     
-    # Chỉ giao tiếp Serial mỗi 60 giây để tuân thủ luật loát (load) 1 phút/lần
-    if current_time - last_update_time >= 10: # 10 giây thử
-        # Nếu cắm dây (Plug)
+    # 1. BẬT LẠI DÒNG NÀY ĐỂ XEM TIM CÓ ĐẬP KHÔNG
+    print(f"[NHỊP TIM]: Đang kiểm tra cổng COM... (Cách lần trước {current_time - last_update_time:.1f}s)")
+    
+    if current_time - last_update_time >= 2: 
+        # Kiểm tra xem có qua được cửa ải Auto Connect không
         if auto_connect():
             try:
-                ser.reset_input_buffer()
-                # Python nhận dữ liệu và giải mã
-                raw_data = ser.readline().decode('utf-8').strip()
-                
-                if raw_data:
-                    values = raw_data.split(',')
-                    if len(values) == 4:
-                        # 1. Cập nhật dữ liệu cảm biến (Realtime)
-                        sensor_cache["light_lux"] = values[0]
-                        sensor_cache["air_humidity"] = values[1]
-                        sensor_cache["soil_moisture"] = values[2]
-                        sensor_cache["touch_sensor"] = values[3]
-                        
-                        # 2. Cập nhật mảng Biểu đồ thật (Dịch trái mảng và nạp giá trị mới vào cuối)
-                        try:
-                            l_val = float(values[0])
-                            m_val = float(values[2])
+                # Kiểm tra xem có giọt dữ liệu nào không
+                if ser.in_waiting > 0:
+                    raw_data = ser.readline().decode('utf-8').strip()
+                    print(f">>> [PHẦN CỨNG] BẮT ĐƯỢC GÓI TIN: '{raw_data}'")
+                    
+                    if raw_data:
+                        values = raw_data.split(',')
+                        if len(values) == 4:
+                            sensor_cache["light_lux"] = values[0]
+                            sensor_cache["air_humidity"] = values[1]
+                            sensor_cache["soil_moisture"] = values[2]
+                            sensor_cache["touch_sensor"] = values[3]
                             
-                            history_cache["light_history"].pop(0)
-                            history_cache["light_history"].append(l_val)
+                            try:
+                                l_val = float(values[0])
+                                m_val = float(values[2])
+                                history_cache["light_history"].pop(0)
+                                history_cache["light_history"].append(l_val)
+                                history_cache["moisture_history"].pop(0)
+                                history_cache["moisture_history"].append(m_val)
+                            except ValueError:
+                                pass 
                             
-                            history_cache["moisture_history"].pop(0)
-                            history_cache["moisture_history"].append(m_val)
-                        except ValueError:
-                            pass # Bỏ qua nếu ESP gửi dính ký tự rác, bảo vệ UI không bị lỗi sập
+                            last_update_time = current_time
+                        else:
+                            print(f"    [!] Bỏ qua gói tin thiếu tham số: {raw_data}")
+                else:
+                    # NẾU CỔNG MỞ MÀ KHÔNG CÓ DỮ LIỆU, IN RA DÒNG NÀY
+                    print("--- [CỔNG COM]: Đã kết nối, đang há miệng chờ ESP32 nhưng không thấy gì dội lên!")
                             
-                        # 3. Tính toán Hệ thống Sinh tồn/Streak dựa trên độ ẩm đất thực tế
-                        try:
-                            soil = float(values[2])
-                            if 40 <= soil <= 80: # Đất có độ ẩm lý tưởng
-                                streak_cache["hp_percent"] = 1.0
-                                streak_cache["status"] = "Tuyệt vời"
-                                streak_cache["streak_days"] += 1
-                            elif soil < 40: # Quá khô
-                                streak_cache["hp_percent"] = 0.3
-                                streak_cache["status"] = "Thiếu nước"
-                                streak_cache["streak_days"] = 0
-                            else: # Quá ẩm (Úng nước)
-                                streak_cache["hp_percent"] = 0.5
-                                streak_cache["status"] = "Úng nước"
-                                streak_cache["streak_days"] = 0
-                        except ValueError:
-                            pass
-                            
-                        # Chốt thời gian cập nhật thành công
-                        last_update_time = current_time
-                        return 
-            except Exception:
-                # Đóng cổng nếu bị rút dây đột ngột
-                ser.close()
-                ser = None
-        
-        # --- Kịch bản: Rút dây (Unplug) hoặc Mất tín hiệu ---
-        sensor_cache = {k: "Không có dữ liệu" for k in sensor_cache}
-        streak_cache["hp_percent"] = 0.0
-        streak_cache["status"] = "Rút cáp/Mất kết nối"
-        
-        # Lưu ý: history_cache KHÔNG bị ghi đè thành chữ "Không có dữ liệu" 
-        # để mảng biểu đồ giữ nguyên được chỉ số cũ, hoặc rớt về 0 tuỳ thuộc, bảo vệ UI khỏi lỗi sập đồ thị.
-        
-        last_update_time = current_time
+            except Exception as e:
+                print(f"Lỗi xử lý luồng dữ liệu: {e}")
+        else:
+            # NẾU KHÔNG KẾT NỐI ĐƯỢC, IN RA DÒNG NÀY
+            print("!!! [LỖI]: auto_connect() thất bại, không thể mở cổng!")
+
+def send_command(command):
+    """Gửi lệnh điều khiển hoặc ngưỡng dữ liệu xuống ESP32"""
+    global ser
+    # Kiểm tra xem cổng Serial có đang mở không
+    if ser and ser.is_open:
+        try:
+            # Gửi chuỗi lệnh kèm ký tự xuống dòng \n để ESP32 nhận biết kết thúc lệnh
+            full_command = f"{command}\n"
+            ser.write(full_command.encode('utf-8'))
+            print(f"--- [PYTHON -> ESP32]: Đã gửi lệnh: {command} ---")
+            return True
+        except Exception as e:
+            print(f"Lỗi khi gửi dữ liệu xuống phần cứng: {e}")
+    else:
+        print("Cảnh báo: Chưa kết nối ESP32, lệnh không thể gửi.")
+    return False
 
 # ================= CÁC HÀM XUẤT ĐỂ MODULES.PY GỌI =================
 # Cả 3 hàm đều gọi qua một lõi update_data để dữ liệu đồng bộ chính xác thời gian với nhau.

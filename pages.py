@@ -50,10 +50,10 @@ class GroupInfoPage(ctk.CTkFrame):
 
         # Danh sách thành viên (Bạn có thể tự sửa text ở đây)
         members = [
-            {"name": "Thành viên 1", "role": "Lập trình nhúng / ESP32", "img": "member1.png"},
-            {"name": "Thành viên 2", "role": "Thiết kế Giao diện / Python", "img": "member2.png"},
-            {"name": "Thành viên 3", "role": "Quản lý Dữ liệu / YAML", "img": "member3.png"},
-            {"name": "Thành viên 4", "role": "Hệ thống Thủy lực / Sensor", "img": "member4.png"}
+            {"name": "Phát Sơn", "role": "Lập trình nhúng / ESP32", "img": "member1.png"},
+            {"name": "Dương Quang", "role": "Thiết kế Giao diện / Python", "img": "member2.png"},
+            {"name": "Bảo Trâm", "role": "Quản lý Dữ liệu / YAML", "img": "member3.png"},
+            {"name": "Gia Nghĩa", "role": "Hệ thống Thủy lực / Sensor", "img": "member4.png"}
         ]
 
         for i, m in enumerate(members):
@@ -100,7 +100,11 @@ class DashboardPage(ctk.CTkFrame):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
-        # SIDEBAR
+        self.current_tab = "Info" # Khởi tạo biến nhớ trang đang ở mặc định
+
+        # ==========================================
+        # 1. SIDEBAR
+        # ==========================================
         self.sidebar_frame = ctk.CTkFrame(self, width=220, corner_radius=0)
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
         self.sidebar_frame.grid_rowconfigure(6, weight=1)
@@ -113,75 +117,132 @@ class DashboardPage(ctk.CTkFrame):
 
         ctk.CTkButton(self.sidebar_frame, text="Đăng xuất", fg_color="gray", command=lambda: controller.show_frame("LoginPage")).grid(row=7, column=0, padx=20, pady=20, sticky="s")
 
-        # MAIN CONTENT
+        # ==========================================
+        # 2. MAIN CONTENT
+        # ==========================================
         self.main_content = ctk.CTkFrame(self)
         self.main_content.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
         
         self.lbl_tab_title = ctk.CTkLabel(self.main_content, text="Chào mừng", font=ctk.CTkFont(size=24, weight="bold"))
-        self.lbl_tab_title.pack(pady=(20, 10))
+        self.lbl_tab_title.pack(pady=(20, 5))
+
+        self.name_label = ctk.CTkLabel(self.main_content, text="Chưa chọn cây", font=("Arial", 20, "bold"), text_color="#2ECC71")
+        self.name_label.pack(pady=(0, 10))
 
         self.dynamic_frame = ctk.CTkFrame(self.main_content, fg_color="transparent")
         self.dynamic_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        self.switch_tab("info", "Thông tin cây")
+        # MỞ TAB MẶC ĐỊNH KHI KHỞI ĐỘNG
+        self.switch_tab("info", "Thông tin cây") 
+        # self.switch_tab(self.current_tab)
 
-    def clear_dynamic_frame(self):
+    # ==========================================
+    # 3. LOGIC XỬ LÝ DỮ LIỆU
+    # ==========================================
+    def switch_tab(self, tab_name, title):
+    
+        self.lbl_tab_title.configure(text=title)
+        print(f"--- TRẠM 3: Đang mở tab {tab_name} ---") # THÊM DÒNG NÀY
+
+        self.current_tab = tab_name # Tạm giữ lại
+
+        # Dọn dẹp khung cũ
         for widget in self.dynamic_frame.winfo_children():
             widget.destroy()
 
-    def switch_tab(self, tab_name, title):
-        self.clear_dynamic_frame()
-        self.lbl_tab_title.configure(text=title)
-
         if tab_name == "info":
-            module = InfoModule(self.dynamic_frame, self.controller)
-            module.pack(fill="both", expand=True)
+            # Xây khung mới
+            self.info_module = InfoModule(self.dynamic_frame, self.controller)
+            self.info_module.pack(fill="both", expand=True, pady=10)
+            
+            
+            
+            # Lấy data từ Kho và ép nó in ra chữ
+            selected_plant = self.controller.shared_data.get("selected_plant")
+            plant_info = self.controller.shared_data.get("plant_info", {})
+            
+            if selected_plant:
+                self.info_module.update_ui(selected_plant, plant_info)
+                
         elif tab_name == "suggest":
-            module = SuggestionModule(self.dynamic_frame)
-            module.pack(fill="both", expand=True)
-        elif tab_name == "streak":
-            module = PlantHPModule(self.dynamic_frame)
-            module.pack(fill="both", expand=True)
-        elif tab_name == "chart":
-            module = HoverPlantChart(self.dynamic_frame)
-            module.pack(fill="both", expand=True)
-    
-    # cập nhận thông tin sau khi chọn xong ở trang thông tin cây
-    def update_display(self): # Mới cập nhật
-        """Hàm này sẽ được gọi mỗi khi bạn chọn cây xong"""
-        # Lấy dữ liệu từ kho chung của controller
-        selected_plant = self.controller.shared_data.get("selected_plant")
-        plant_info = self.controller.shared_data.get("plant_info")
-
-        if selected_plant:
-            self.name_label.configure(text=f"Cây đang chọn: {selected_plant}")
-            # Hiển thị các thông số từ YAML (Độ ẩm, Ánh sáng...)
-            info_text = "\n".join([f"{k}: {v}" for k, v in plant_info.items()])
-            self.info_label.configure(text=info_text)
+            print("--- Đang kết nối dữ liệu vào tab Gợi ý ---")
+            # Tạo module và truyền self.controller vào để nó thấy được Kho dữ liệu
+            self.suggest_module = SuggestionModule(self.dynamic_frame, self.controller)
+            self.suggest_module.pack(fill="both", expand=True, padx=20, pady=20)
+            
+            # Tự động chạy phán xét lần đầu luôn
+            self.suggest_module.update_logic()
         
-        # KHAI BÁO CÁC THÀNH PHẦN (Đây là phần bạn bị thiếu dẫn đến lỗi)
-        # Nhãn hiển thị tên cây
-        self.name_label = ctk.CTkLabel(self, text="Chưa chọn loại cây", font=("Arial", 20, "italic"))
-        self.name_label.pack(pady=10)
+        elif tab_name == "streak":
+            print(f"--- Đang mở tab {tab_name} ---")
+            # ✅ GỌI MODULE HP/STREAK THẬT
+            self.hp_module = PlantHPModule(self.dynamic_frame, self.controller)
+            self.hp_module.pack(fill="both", expand=True, pady=20)
+            self.hp_module.update_stats() # Cập nhật dữ liệu ngay
 
-        # Nhãn hiển thị chi tiết thông số từ YAML
-        self.info_label = ctk.CTkLabel(self, text="Hãy vào phần chỉnh sửa để chọn cây", font=("Arial", 14))
-        self.info_label.pack(pady=10)
-
+        elif tab_name == "chart":
+            print(f"--- Đang mở tab {tab_name} ---")
+            # ✅ GỌI BIỂU ĐỒ THẬT
+            self.chart_module = HoverPlantChart(self.dynamic_frame, self.controller)
+            self.chart_module.pack(fill="both", expand=True)
+            self.chart_module.draw_chart() # Vẽ biểu đồ ngay
+            
     def update_display(self):
-        """Hàm cập nhật thông tin khi quay lại từ trang chọn cây"""
-        # Kiểm tra xem shared_data đã có dữ liệu chưa 
+        """Hàm này tự động chạy khi quay lại từ trang Chọn Cây"""
         selected_plant = self.controller.shared_data.get("selected_plant")
-        plant_info = self.controller.shared_data.get("plant_info")
 
         if selected_plant:
             self.name_label.configure(text=f"Cây hiện tại: {selected_plant}", font=("Arial", 20, "bold"), text_color="#2ECC71")
             
-            # Hiển thị thông số từ YAML (DoAm, AnhSang, MucNuoc...)
-            info_text = ""
-            for key, val in plant_info.items():
-                info_text += f"{key}: {val}\n"
-            self.info_label.configure(text=info_text)
+            # Tự động tra bảng mã YAML
+            try:
+                import yaml
+                with open("data.yaml", "r", encoding="utf-8") as f:
+                    all_plants = yaml.safe_load(f)
+                    plant_info = all_plants.get(selected_plant, {})
+                    self.controller.shared_data["plant_info"] = plant_info
+            except Exception as e:
+                print("Lỗi đọc file data.yaml:", e)
+                self.controller.shared_data["plant_info"] = {}
+
+            # KÍCH HOẠT HIỂN THỊ (Cái này gây lỗi giật trang khi làm mới)
+            # self.switch_tab("info", "Thông tin cây")
+            # self.switch_tab(self.current_tab) # Cái này tân tiến hơn, chỉ làm mới ở trang người dùng đang mở.
+
+    # ... (Bên dưới giữ nguyên hàm update_display() có chức năng đọc file data.yaml mà tôi đã gửi bạn lúc nãy) ...
+
+    def clear_dynamic_frame(self):
+        for widget in self.dynamic_frame.winfo_children():
+            widget.destroy()
+    
+    
+    def update_display(self):
+        """Hàm cập nhật thông tin khi quay lại từ trang chọn cây"""
+        selected_plant = self.controller.shared_data.get("selected_plant")
+
+        if selected_plant:
+            # 1. Cập nhật nhãn Tên cây ở trên cùng
+            self.name_label.configure(text=f"Cây hiện tại: {selected_plant}", font=("Arial", 20, "bold"), text_color="#2ECC71")
+            print(f"--- TRẠM 2.1: Chuẩn bị gọi switch_tab ---") # THÊM DÒNG NÀY
+            self.switch_tab("info", "Thông tin cây")
+            # 2. Đọc "Kinh thánh" YAML
+            try:
+                import yaml
+                with open("data.yaml", "r", encoding="utf-8") as f:
+                    all_plants = yaml.safe_load(f)
+                    # Lấy thông số của cây (Mặc định là rỗng nếu không tìm thấy)
+                    plant_info = all_plants.get(selected_plant, {})
+                    
+                    # Cất cẩn thận vào kho
+                    self.controller.shared_data["plant_info"] = plant_info
+            except Exception as e:
+                print("Lỗi đọc file data.yaml:", e)
+                self.controller.shared_data["plant_info"] = {}
+
+            # 3. MA THUẬT NẰM Ở ĐÂY: Ra lệnh cho tab "Thông tin cây" mở ra và tự cập nhật
+            
+            # self.switch_tab("info", "Thông tin cây")
+
 # Hàm module con xử lý tên ảnh
 def get_safe_filename(name):
     """Ép chuỗi (VD: 'Xương Rồng' -> 'xuong_rong.png')"""
@@ -266,13 +327,24 @@ class EditPlantPage(ctk.CTkFrame):
         select_btn.pack(side="right", padx=20)
 
     def on_plant_select(self, plant_name):
-        if plant_name in self.plants_data:
-            self.controller.shared_data["selected_plant"] = plant_name
-            self.controller.shared_data["plant_info"] = self.plants_data[plant_name]
-        
-        # Cập nhật hiển thị cho Dashboard trước khi chuyển trang
-        if "DashboardPage" in self.controller.frames:
-            self.controller.frames["DashboardPage"].update_display()
-        
-        # Quay về Dashboard
+    # 1. Lấy thông tin cây từ dữ liệu YAML đã load sẵn
+        plant_info = self.plants_data.get(plant_name, {})
+    
+    # 2. Cập nhật vào kho dữ liệu chung (MVC)
+        self.controller.shared_data["selected_plant"] = plant_name
+        self.controller.shared_data["plant_info"] = plant_info
+    
+    # 3. TRUYỀN TIN XUỐNG PHẦN CỨNG (New logic)
+        try:
+            # Bóc tách số từ chuỗi "40%" -> 40
+            threshold_str = plant_info.get("DoAm", "50%")
+            threshold_val = int(threshold_str.replace("%", ""))
+            
+            # Gửi lệnh với tiền tố "SET_LIMIT:" để ESP32 dễ bóc tách
+            import iot_socket
+            iot_socket.send_command(f"SET_LIMIT:{threshold_val}")
+        except Exception as e:
+            print(f"Lỗi bóc tách ngưỡng để gửi cho ESP32: {e}")
+
+    # 4. Quay về Dashboard và cập nhật hiển thị
         self.controller.show_frame("DashboardPage")
